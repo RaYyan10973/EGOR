@@ -1,4 +1,27 @@
+import java.time.DateTimeException;
+import java.time.LocalDate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 class BirthDate {
+    private static final Pattern FORMAT = Pattern.compile("(\\d{4})-(\\d{2})-(\\d{2})");
+
+    static BirthDate parse(String value) {
+        Matcher matcher = FORMAT.matcher(value.trim());
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException("Неверный формат даты. Пример: 2005-04-17");
+        }
+        int year = Integer.parseInt(matcher.group(1));
+        int month = Integer.parseInt(matcher.group(2));
+        int day = Integer.parseInt(matcher.group(3));
+        try {
+            LocalDate.of(year, month, day);
+        } catch (DateTimeException e) {
+            throw new IllegalArgumentException("Такой даты не существует.");
+        }
+        return new BirthDate(day, month, year);
+    }
+
     private int day;
     private int month;
     private int year;

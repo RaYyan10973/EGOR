@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Scanner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 class PatientRegistry {
     private final List<Patient> patients = new ArrayList<>();
@@ -59,16 +61,17 @@ class PatientReader {
     }
 
     private BirthDate readBirthDate() {
+        Pattern pattern = Pattern.compile("(\\d{4})-(\\d{2})-(\\d{2})");
         while (true) {
             String value = ask("Введите дату рождения (гггг-мм-дд): ");
-            if (!value.matches("\\d{4}-\\d{2}-\\d{2}")) {
+            Matcher matcher = pattern.matcher(value.trim());
+            if (!matcher.matches()) {
                 System.out.println("Ошибка! Неверный формат даты. Пример: 2005-04-17");
                 continue;
             }
-            String[] p = value.split("-");
-            int year = Integer.parseInt(p[0]);
-            int month = Integer.parseInt(p[1]);
-            int day = Integer.parseInt(p[2]);
+            int year = Integer.parseInt(matcher.group(1));
+            int month = Integer.parseInt(matcher.group(2));
+            int day = Integer.parseInt(matcher.group(3));
             try {
                 LocalDate.of(year, month, day);
                 return new BirthDate(day, month, year);
@@ -81,10 +84,11 @@ class PatientReader {
     private double readTemperature() {
         while (true) {
             String value = ask("Введите температуру (например, 36.60): ");
-            if (value.matches("\\d+\\.\\d{2}")) {
-                return Double.parseDouble(value);
+            try {
+                return Double.parseDouble(value.trim());
+            } catch (NumberFormatException e) {
+                System.out.println("Ошибка! Не удалось распознать температуру: " + value);
             }
-            System.out.println("Ошибка! Введите температуру в формате XX.XX.");
         }
     }
 }
@@ -114,13 +118,16 @@ class PatientFileReader {
                     System.out.println("Пропущена некорректная строка: " + line);
                     continue;
                 }
-                String[] d = p[2].split("-");
-                patients.add(new Patient(
-                        p[0].trim(),
-                        p[1].trim(),
-                        new BirthDate(Integer.parseInt(d[2]), Integer.parseInt(d[1]), Integer.parseInt(d[0])),
-                        p[3].trim(),
-                        Double.parseDouble(p[4].trim())));
+                try {
+                    patients.add(new Patient(
+                            p[0].trim(),
+                            p[1].trim(),
+                            BirthDate.parse(p[2]),
+                            p[3].trim(),
+                            Double.parseDouble(p[4].trim())));
+                } catch (IllegalArgumentException e) {
+                    System.out.println("Пропущена некорректная строка: " + line);
+                }
             }
         } catch (Exception e) {
             System.out.println("Ошибка чтения файла: " + e.getMessage());

@@ -1,3 +1,9 @@
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -83,14 +89,75 @@ class PatientReader {
     }
 }
 
+class PatientFileReader {
+    private final Path path;
+
+    PatientFileReader() {
+        Path local = Paths.get("patients.txt");
+        this.path = Files.isRegularFile(local) ? local : Paths.get("patients-java", "patients.txt");
+    }
+
+    List<Patient> load() {
+        List<Patient> patients = new ArrayList<>();
+        if (!Files.isRegularFile(path)) {
+            System.out.println("Файл с пациентами не найден: " + path);
+            return patients;
+        }
+        try {
+            for (String line : Files.readAllLines(path, StandardCharsets.UTF_8)) {
+                line = line.trim();
+                if (line.isEmpty()) {
+                    continue;
+                }
+                String[] p = line.split("\\|");
+                if (p.length != 5) {
+                    System.out.println("Пропущена некорректная строка: " + line);
+                    continue;
+                }
+                String[] d = p[2].split("-");
+                patients.add(new Patient(
+                        p[0].trim(),
+                        p[1].trim(),
+                        new BirthDate(Integer.parseInt(d[2]), Integer.parseInt(d[1]), Integer.parseInt(d[0])),
+                        p[3].trim(),
+                        Double.parseDouble(p[4].trim())));
+            }
+        } catch (Exception e) {
+            System.out.println("Ошибка чтения файла: " + e.getMessage());
+        }
+        return patients;
+    }
+
+    void append(Patient patient) {
+        BirthDate d = patient.getBirthDate();
+        String line = String.format(Locale.US, "%s|%s|%04d-%02d-%02d|%s|%.2f",
+                patient.getName(), patient.getPassport(),
+                d.getYear(), d.getMonth(), d.getDay(),
+                patient.getPhone(), patient.getTemperature());
+        try {
+            Files.write(path, (line + System.lineSeparator()).getBytes(StandardCharsets.UTF_8),
+                    StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+            System.out.println("Ошибка записи в файл: " + e.getMessage());
+        }
+    }
+}
+
 public class Main {
     public static void main(String[] args) {
         PatientRegistry registry = new PatientRegistry();
         PatientReader reader = new PatientReader();
+        PatientFileReader fileReader = new PatientFileReader();
+
+        for (Patient patient : fileReader.load()) {
+            registry.add(patient);
+        }
+        System.out.println("Загружено пациентов из файла: " + registry.getAll().size());
 
         while (true) {
             Patient patient = reader.createPatient();
             registry.add(patient);
+            fileReader.append(patient);
 
             String answer = reader.ask("\nХотите создать ещё одного пациента? (да/нет): ");
             if (!answer.equalsIgnoreCase("да")) {
